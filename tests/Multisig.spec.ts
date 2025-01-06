@@ -467,111 +467,111 @@ describe('Multisig', () => {
         // Now second comes first
         expect(order2Tx!.lt).toBeLessThan(order1Tx!.lt);
     });
-    it('should execute update multisig parameters correctly', async () => {
-        const newSigners = await blockchain.createWallets(4);
-        const updOrder : UpdateRequest = {
-            type: "update",
-            threshold: 4,
-            signers: newSigners.map(s => s.address),
-            proposers: []
-        };
-        let initialSeqno = (await multisig.getMultisigData()).nextOrderSeqno;
-        //todo adjust for new order seqno behavior
-        let res = await multisig.sendNewOrder(deployer.getSender(), [updOrder], Math.floor(Date.now() / 1000 + 1000));
+    // it('should execute update multisig parameters correctly', async () => {
+    //     const newSigners = await blockchain.createWallets(4);
+    //     const updOrder : UpdateRequest = {
+    //         type: "update",
+    //         threshold: 4,
+    //         signers: newSigners.map(s => s.address),
+    //         proposers: []
+    //     };
+    //     let initialSeqno = (await multisig.getMultisigData()).nextOrderSeqno;
+    //     //todo adjust for new order seqno behavior
+    //     let res = await multisig.sendNewOrder(deployer.getSender(), [updOrder], Math.floor(Date.now() / 1000 + 1000));
 
-        expect((await multisig.getMultisigData()).nextOrderSeqno).toEqual(initialSeqno + 1n);
-        let orderAddress = await multisig.getOrderAddress(initialSeqno);
-        expect(res.transactions).toHaveTransaction({
-            from: multisig.address,
-            to: orderAddress,
-            success: true
-        });
-        expect(res.transactions).toHaveTransaction({
-            from: orderAddress,
-            to: multisig.address,
-            op: Op.multisig.execute,
-            success: true
-        });
+    //     expect((await multisig.getMultisigData()).nextOrderSeqno).toEqual(initialSeqno + 1n);
+    //     let orderAddress = await multisig.getOrderAddress(initialSeqno);
+    //     expect(res.transactions).toHaveTransaction({
+    //         from: multisig.address,
+    //         to: orderAddress,
+    //         success: true
+    //     });
+    //     expect(res.transactions).toHaveTransaction({
+    //         from: orderAddress,
+    //         to: multisig.address,
+    //         op: Op.multisig.execute,
+    //         success: true
+    //     });
 
-        const dataAfter = await multisig.getMultisigData();
-        expect(dataAfter.threshold).toEqual(BigInt(updOrder.threshold));
-        expect(dataAfter.signers[0]).toEqualAddress(newSigners[0].address);
-        expect(dataAfter.proposers.length).toBe(0);
-    });
-    it('should reject multisig parameters with inconsistently ordered signers or proposers', async () => {
-        // To produce inconsistent dictionary we have to craft it manually
-        const malformed = Dictionary.empty(Dictionary.Keys.Uint(8), Dictionary.Values.Address());
-        malformed.set(0, randomAddress());
-        malformed.set(2, randomAddress());
-        let updateCell = beginCell().storeUint(Op.actions.update_multisig_params, 32)
-                                    .storeUint(4, 8)
-                                    .storeDict(malformed) // signers
-                                    .storeDict(null) // empty proposers
-                         .endCell();
+    //     const dataAfter = await multisig.getMultisigData();
+    //     expect(dataAfter.threshold).toEqual(BigInt(updOrder.threshold));
+    //     expect(dataAfter.signers[0]).toEqualAddress(newSigners[0].address);
+    //     expect(dataAfter.proposers.length).toBe(0);
+    // });
+    // it('should reject multisig parameters with inconsistently ordered signers or proposers', async () => {
+    //     // To produce inconsistent dictionary we have to craft it manually
+    //     const malformed = Dictionary.empty(Dictionary.Keys.Uint(8), Dictionary.Values.Address());
+    //     malformed.set(0, randomAddress());
+    //     malformed.set(2, randomAddress());
+    //     let updateCell = beginCell().storeUint(Op.actions.update_multisig_params, 32)
+    //                                 .storeUint(4, 8)
+    //                                 .storeDict(malformed) // signers
+    //                                 .storeDict(null) // empty proposers
+    //                      .endCell();
 
-        const orderDict = Dictionary.empty(Dictionary.Keys.Uint(8), Dictionary.Values.Cell());
-        orderDict.set(0, updateCell);
+    //     const orderDict = Dictionary.empty(Dictionary.Keys.Uint(8), Dictionary.Values.Cell());
+    //     orderDict.set(0, updateCell);
 
-        let orderCell = beginCell().storeDictDirect(orderDict).endCell();
+    //     let orderCell = beginCell().storeDictDirect(orderDict).endCell();
 
-        let dataBefore   = await multisig.getMultisigData();
-        let orderAddress = await multisig.getOrderAddress(dataBefore.nextOrderSeqno);
-        let res = await multisig.sendNewOrder(deployer.getSender(), orderCell, curTime() + 100);
-        expect(res.transactions).toHaveTransaction({
-            from: orderAddress,
-            to: multisig.address,
-            op: Op.multisig.execute,
-            aborted: true,
-            success: false,
-            exitCode: Errors.multisig.invalid_dictionary_sequence
-        });
+    //     let dataBefore   = await multisig.getMultisigData();
+    //     let orderAddress = await multisig.getOrderAddress(dataBefore.nextOrderSeqno);
+    //     let res = await multisig.sendNewOrder(deployer.getSender(), orderCell, curTime() + 100);
+    //     expect(res.transactions).toHaveTransaction({
+    //         from: orderAddress,
+    //         to: multisig.address,
+    //         op: Op.multisig.execute,
+    //         aborted: true,
+    //         success: false,
+    //         exitCode: Errors.multisig.invalid_dictionary_sequence
+    //     });
 
-        const stringify = (x: Address) => x.toString();
-        let dataAfter = await multisig.getMultisigData();
-        // Order seqno should increase
-        expect(dataAfter.nextOrderSeqno).toEqual(dataBefore.nextOrderSeqno + 1n);
-        // Rest stay same
-        expect(dataAfter.threshold).toEqual(dataBefore.threshold);
-        expect(dataAfter.signers.map(stringify)).toEqual(dataBefore.signers.map(stringify));
-        expect(dataAfter.proposers.map(stringify)).toEqual(dataBefore.proposers.map(stringify));
+    //     const stringify = (x: Address) => x.toString();
+    //     let dataAfter = await multisig.getMultisigData();
+    //     // Order seqno should increase
+    //     expect(dataAfter.nextOrderSeqno).toEqual(dataBefore.nextOrderSeqno + 1n);
+    //     // Rest stay same
+    //     expect(dataAfter.threshold).toEqual(dataBefore.threshold);
+    //     expect(dataAfter.signers.map(stringify)).toEqual(dataBefore.signers.map(stringify));
+    //     expect(dataAfter.proposers.map(stringify)).toEqual(dataBefore.proposers.map(stringify));
 
-        dataBefore   = await multisig.getMultisigData();
-        orderAddress = await multisig.getOrderAddress(dataBefore.nextOrderSeqno);
+    //     dataBefore   = await multisig.getMultisigData();
+    //     orderAddress = await multisig.getOrderAddress(dataBefore.nextOrderSeqno);
 
-        // Now let's test if proposers order is checked
-        malformed.clear();
-        // Let's be bit sneaky. It's kinda consistent, but starts with 1. Should fail anyways.
-        malformed.set(1, randomAddress());
-        malformed.set(2, randomAddress());
+    //     // Now let's test if proposers order is checked
+    //     malformed.clear();
+    //     // Let's be bit sneaky. It's kinda consistent, but starts with 1. Should fail anyways.
+    //     malformed.set(1, randomAddress());
+    //     malformed.set(2, randomAddress());
 
-        updateCell = beginCell().storeUint(Op.actions.update_multisig_params, 32)
-                                .storeUint(4, 8)
-                                .storeDict(null) // Empty signers? Yes, that is allowed
-                                .storeDict(malformed) // proposers
-                     .endCell();
+    //     updateCell = beginCell().storeUint(Op.actions.update_multisig_params, 32)
+    //                             .storeUint(4, 8)
+    //                             .storeDict(null) // Empty signers? Yes, that is allowed
+    //                             .storeDict(malformed) // proposers
+    //                  .endCell();
 
-        // All over again
-        orderDict.set(0, updateCell);
-        orderCell = beginCell().storeDictDirect(orderDict).endCell();
+    //     // All over again
+    //     orderDict.set(0, updateCell);
+    //     orderCell = beginCell().storeDictDirect(orderDict).endCell();
 
-        res = await multisig.sendNewOrder(deployer.getSender(), orderCell, curTime() + 100);
-        expect(res.transactions).toHaveTransaction({
-            from: orderAddress,
-            to: multisig.address,
-            op: Op.multisig.execute,
-            aborted: true,
-            success: false,
-            exitCode: Errors.multisig.invalid_dictionary_sequence
-        });
+    //     res = await multisig.sendNewOrder(deployer.getSender(), orderCell, curTime() + 100);
+    //     expect(res.transactions).toHaveTransaction({
+    //         from: orderAddress,
+    //         to: multisig.address,
+    //         op: Op.multisig.execute,
+    //         aborted: true,
+    //         success: false,
+    //         exitCode: Errors.multisig.invalid_dictionary_sequence
+    //     });
 
-        dataAfter = await multisig.getMultisigData();
-        // Order seqno should increase
-        expect(dataAfter.nextOrderSeqno).toEqual(dataBefore.nextOrderSeqno + 1n);
-        // Rest stay same
-        expect(dataAfter.threshold).toEqual(dataBefore.threshold);
-        expect(dataAfter.signers.map(stringify)).toEqual(dataBefore.signers.map(stringify));
-        expect(dataAfter.proposers.map(stringify)).toEqual(dataBefore.proposers.map(stringify));
-    });
+    //     dataAfter = await multisig.getMultisigData();
+    //     // Order seqno should increase
+    //     expect(dataAfter.nextOrderSeqno).toEqual(dataBefore.nextOrderSeqno + 1n);
+    //     // Rest stay same
+    //     expect(dataAfter.threshold).toEqual(dataBefore.threshold);
+    //     expect(dataAfter.signers.map(stringify)).toEqual(dataBefore.signers.map(stringify));
+    //     expect(dataAfter.proposers.map(stringify)).toEqual(dataBefore.proposers.map(stringify));
+    // });
     it('should accept execute internal only from self address', async () => {
         const nobody = await blockchain.treasury('nobody');
         // Let's test every role
@@ -662,107 +662,107 @@ describe('Multisig', () => {
             body: testBody
         });
     });
-    it('multisig should invalidate previous orders if signers change', async () => {
-        const testAddr = randomAddress();
-        const testBody = beginCell().storeUint(0x12345, 32).endCell();
+    // it('multisig should invalidate previous orders if signers change', async () => {
+    //     const testAddr = randomAddress();
+    //     const testBody = beginCell().storeUint(0x12345, 32).endCell();
 
-        const dataBefore = await multisig.getMultisigData();
-        const orderAddr    = await multisig.getOrderAddress(dataBefore.nextOrderSeqno);
-        const testMsg: TransferRequest = {
-            type: "transfer",
-            sendMode: 1,
-            message: internal_relaxed({
-                to: multisig.address,
-                value: toNano('0.015'),
-                body: testBody
-            })
-        };
-        const updOrder : UpdateRequest = {
-            type: "update",
-            threshold: Number(dataBefore.threshold),
-            signers: [differentAddress(deployer.address)],
-            proposers: dataBefore.proposers
-        };
+    //     const dataBefore = await multisig.getMultisigData();
+    //     const orderAddr    = await multisig.getOrderAddress(dataBefore.nextOrderSeqno);
+    //     const testMsg: TransferRequest = {
+    //         type: "transfer",
+    //         sendMode: 1,
+    //         message: internal_relaxed({
+    //             to: multisig.address,
+    //             value: toNano('0.015'),
+    //             body: testBody
+    //         })
+    //     };
+    //     const updOrder : UpdateRequest = {
+    //         type: "update",
+    //         threshold: Number(dataBefore.threshold),
+    //         signers: [differentAddress(deployer.address)],
+    //         proposers: dataBefore.proposers
+    //     };
 
-        // First we deploy order with proposer, so it doesn't execute right away
-        let res = await multisig.sendNewOrder(proposer.getSender(), [testMsg], curTime() + 1000);
-        expect(res.transactions).toHaveTransaction({
-            from: multisig.address,
-            to: orderAddr,
-            deploy: true,
-            success: true
-        });
-        // Now lets perform signers update
-        res = await multisig.sendNewOrder(deployer.getSender(), [updOrder], curTime() + 100);
+    //     // First we deploy order with proposer, so it doesn't execute right away
+    //     let res = await multisig.sendNewOrder(proposer.getSender(), [testMsg], curTime() + 1000);
+    //     expect(res.transactions).toHaveTransaction({
+    //         from: multisig.address,
+    //         to: orderAddr,
+    //         deploy: true,
+    //         success: true
+    //     });
+    //     // Now lets perform signers update
+    //     res = await multisig.sendNewOrder(deployer.getSender(), [updOrder], curTime() + 100);
 
-        expect(res.transactions).toHaveTransaction({
-            from: deployer.address,
-            to: multisig.address,
-            success: true
-        });
-        expect((await multisig.getMultisigData()).signers[0]).not.toEqualAddress(dataBefore.signers[0]);
+    //     expect(res.transactions).toHaveTransaction({
+    //         from: deployer.address,
+    //         to: multisig.address,
+    //         success: true
+    //     });
+    //     expect((await multisig.getMultisigData()).signers[0]).not.toEqualAddress(dataBefore.signers[0]);
 
-        const orderContract = blockchain.openContract(Order.createFromAddress(orderAddr));
-        // Now let's approve old order
-        res = await orderContract.sendApprove(deployer.getSender(), 0);
-        expect(res.transactions).toHaveTransaction({
-            from: orderAddr,
-            to: multisig.address,
-            op: Op.multisig.execute,
-            aborted: true,
-            success: false,
-            exitCode: Errors.multisig.singers_outdated
-        });
-    });
-    it('multisig should invalidate previous orders if threshold increased', async () => {
-        const dataBefore = await multisig.getMultisigData();
-        const orderAddr  = await multisig.getOrderAddress(dataBefore.nextOrderSeqno);
-        const testBody = beginCell().storeUint(0x12345, 32).endCell();
-        const testMsg: TransferRequest = {
-            type: "transfer",
-            sendMode: 1,
-            message: internal_relaxed({
-                to: multisig.address,
-                value: toNano('0.015'),
-                body: testBody
-            })
-        };
-        const updOrder : UpdateRequest = {
-            type: "update",
-            threshold: Number(dataBefore.threshold) + 1, // threshold increases
-            signers, // Doesn't change
-            proposers: dataBefore.proposers
-        };
-        // First we deploy order with proposer, so it doesn't execute right away
-        let res = await multisig.sendNewOrder(proposer.getSender(), [testMsg], curTime() + 1000);
-        expect(res.transactions).toHaveTransaction({
-            from: multisig.address,
-            to: orderAddr,
-            deploy: true,
-            success: true
-        });
-        // Now lets perform threshold update
-        res = await multisig.sendNewOrder(deployer.getSender(), [updOrder], curTime() + 100);
+    //     const orderContract = blockchain.openContract(Order.createFromAddress(orderAddr));
+    //     // Now let's approve old order
+    //     res = await orderContract.sendApprove(deployer.getSender(), 0);
+    //     expect(res.transactions).toHaveTransaction({
+    //         from: orderAddr,
+    //         to: multisig.address,
+    //         op: Op.multisig.execute,
+    //         aborted: true,
+    //         success: false,
+    //         exitCode: Errors.multisig.singers_outdated
+    //     });
+    // });
+    // it('multisig should invalidate previous orders if threshold increased', async () => {
+    //     const dataBefore = await multisig.getMultisigData();
+    //     const orderAddr  = await multisig.getOrderAddress(dataBefore.nextOrderSeqno);
+    //     const testBody = beginCell().storeUint(0x12345, 32).endCell();
+    //     const testMsg: TransferRequest = {
+    //         type: "transfer",
+    //         sendMode: 1,
+    //         message: internal_relaxed({
+    //             to: multisig.address,
+    //             value: toNano('0.015'),
+    //             body: testBody
+    //         })
+    //     };
+    //     const updOrder : UpdateRequest = {
+    //         type: "update",
+    //         threshold: Number(dataBefore.threshold) + 1, // threshold increases
+    //         signers, // Doesn't change
+    //         proposers: dataBefore.proposers
+    //     };
+    //     // First we deploy order with proposer, so it doesn't execute right away
+    //     let res = await multisig.sendNewOrder(proposer.getSender(), [testMsg], curTime() + 1000);
+    //     expect(res.transactions).toHaveTransaction({
+    //         from: multisig.address,
+    //         to: orderAddr,
+    //         deploy: true,
+    //         success: true
+    //     });
+    //     // Now lets perform threshold update
+    //     res = await multisig.sendNewOrder(deployer.getSender(), [updOrder], curTime() + 100);
 
-        expect(res.transactions).toHaveTransaction({
-            from: deployer.address,
-            to: multisig.address,
-            success: true
-        });
-        expect((await multisig.getMultisigData()).threshold).toEqual(dataBefore.threshold + 1n);
+    //     expect(res.transactions).toHaveTransaction({
+    //         from: deployer.address,
+    //         to: multisig.address,
+    //         success: true
+    //     });
+    //     expect((await multisig.getMultisigData()).threshold).toEqual(dataBefore.threshold + 1n);
 
-        const orderContract = blockchain.openContract(Order.createFromAddress(orderAddr));
-        // Now let's approve old order
-        res = await orderContract.sendApprove(deployer.getSender(), 0);
-        expect(res.transactions).toHaveTransaction({
-            from: orderAddr,
-            to: multisig.address,
-            op: Op.multisig.execute,
-            aborted: true,
-            success: false,
-            exitCode: Errors.multisig.singers_outdated
-        });
-    });
+    //     const orderContract = blockchain.openContract(Order.createFromAddress(orderAddr));
+    //     // Now let's approve old order
+    //     res = await orderContract.sendApprove(deployer.getSender(), 0);
+    //     expect(res.transactions).toHaveTransaction({
+    //         from: orderAddr,
+    //         to: multisig.address,
+    //         op: Op.multisig.execute,
+    //         aborted: true,
+    //         success: false,
+    //         exitCode: Errors.multisig.singers_outdated
+    //     });
+    // });
     it('multisig should not execute orders deployed by other multisig contract', async () => {
         const coolHacker = await blockchain.treasury('1337');
         const newConfig : MultisigConfig = {
@@ -919,33 +919,33 @@ describe('Multisig', () => {
                 await blockchain.loadFrom(stateBefore);
             }
         });
-        it('multisig parameters update with threshold = 0 should fail', async () => {
-            const dataBefore = await multisig.getMultisigData();
-            const orderAddr  = await multisig.getOrderAddress(dataBefore.nextOrderSeqno);
-            expect(dataBefore.threshold).not.toBe(0n);
+        // it('multisig parameters update with threshold = 0 should fail', async () => {
+        //     const dataBefore = await multisig.getMultisigData();
+        //     const orderAddr  = await multisig.getOrderAddress(dataBefore.nextOrderSeqno);
+        //     expect(dataBefore.threshold).not.toBe(0n);
 
-            const updateReq : UpdateRequest = {
-                'threshold': 0,
-                'type': 'update',
-                'signers': dataBefore.signers,
-                'proposers': dataBefore.proposers
-            }
+        //     const updateReq : `Update`Request = {
+        //         'threshold': 0,
+        //         'type': 'update',
+        //         'signers': dataBefore.signers,
+        //         'proposers': dataBefore.proposers
+        //     }
 
-            const res = await multisig.sendNewOrder(deployer.getSender(), [updateReq, testMsg], curTime() + 1000);
-            expect(res.transactions).toHaveTransaction({
-                on: multisig.address,
-                from: orderAddr,
-                op: Op.multisig.execute,
-                aborted: true
-            });
-            // Make sure that the next action is not executed for whatever reason
-            expect(res.transactions).not.toHaveTransaction({
-                on: testAddr,
-                from: multisig.address
-            });
-            const dataAfter = await multisig.getMultisigData();
-            expect(dataAfter.threshold).toEqual(dataBefore.threshold);
-        });
+        //     const res = await multisig.sendNewOrder(deployer.getSender(), [updateReq, testMsg], curTime() + 1000);
+        //     expect(res.transactions).toHaveTransaction({
+        //         on: multisig.address,
+        //         from: orderAddr,
+        //         op: Op.multisig.execute,
+        //         aborted: true
+        //     });
+        //     // Make sure that the next action is not executed for whatever reason
+        //     expect(res.transactions).not.toHaveTransaction({
+        //         on: testAddr,
+        //         from: multisig.address
+        //     });
+        //     const dataAfter = await multisig.getMultisigData();
+        //     expect(dataAfter.threshold).toEqual(dataBefore.threshold);
+        // });
     });
     describe('Arbitrary seqno', () => {
         describe('Not allowed', () => {

@@ -34,19 +34,20 @@ int validate_dictionary_sequence(cell dict) impure inline {
                 int mode = action~load_uint(8);
                 send_raw_message(action~load_ref(), mode);
                 action.end_parse();
-            } elseif (action_op == actions::update_multisig_params) {
-                threshold = action~load_index();
-                signers = action~load_nonempty_dict();
-                signers_num = validate_dictionary_sequence(signers);
-                throw_unless(error::invalid_signers, signers_num >= 1);
-                throw_unless(error::invalid_threshold, threshold > 0);
-                throw_unless(error::invalid_threshold, threshold <= signers_num);
-
-                proposers = action~load_dict();
-                validate_dictionary_sequence(proposers);
-
-                action.end_parse();
             }
+            ;; elseif (action_op == actions::update_multisig_params) {
+            ;;     threshold = action~load_index();
+            ;;     signers = action~load_nonempty_dict();
+            ;;     signers_num = validate_dictionary_sequence(signers);
+            ;;     throw_unless(error::invalid_signers, signers_num >= 1);
+            ;;     throw_unless(error::invalid_threshold, threshold > 0);
+            ;;     throw_unless(error::invalid_threshold, threshold <= signers_num);
+
+            ;;     proposers = action~load_dict();
+            ;;     validate_dictionary_sequence(proposers);
+
+            ;;     action.end_parse();
+            ;; }
         }
     } until (~ found?);
 
